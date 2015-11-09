@@ -32,9 +32,10 @@ LOCATION_NOT_FOUND_ERROR = "Please enter a valid address. Be as specific as poss
 
 class UberCommand
 
-  def initialize bearer_token, user_id
-    @user_id = user_id
+  def initialize bearer_token, user_id, response_url
     @bearer_token = bearer_token
+    @user_id = user_id
+    @response_url = response_url
   end
 
   def run user_input_string
@@ -135,8 +136,10 @@ class UberCommand
         "Content-Type" => :json,
         accept: 'json'
       )
-      # format_200_ride_request_response(JSON.parse(response.body))
-      "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
+      success_res = format_200_ride_request_response(JSON.parse(response.body))
+
+      RestClient.post(@response_url, success_res, "Content-Type" => :json)
+      ""
     end
   end
 
@@ -187,7 +190,7 @@ class UberCommand
         "Content-Type" => :json,
         accept: :json
       )
-      # format_200_ride_request_response(JSON.parse(response.body))
+      format_200_ride_request_response(JSON.parse(response.body))
       "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
     end
   end
