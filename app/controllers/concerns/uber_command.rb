@@ -5,7 +5,8 @@ VALID_COMMANDS = ['ride', 'products']
 
 class UberCommand
 
-  def initialize bearer_token
+  def initialize bearer_token, user_id = nil
+    @user_id = user_id
     @bearer_token = bearer_token
   end
 
@@ -33,6 +34,10 @@ class UberCommand
     STRING
   end
 
+  def accept
+    @ride = Ride.new
+  end
+
   def ride input_str
     origin_name, destination_name = input_str.split("to")
 
@@ -47,7 +52,7 @@ class UberCommand
       "start_longitude" => origin_lng,
       "end_latitude" => destination_lat,
       "end_longitude" => destination_lng,
-      "product_id" => product_idr4
+      "product_id" => product_id
     }
 
     response = RestClient.post(
@@ -58,13 +63,32 @@ class UberCommand
       accept: 'json'
     )
 
-    return response.body
+    parsed_body = JSON.parse(response.body)
+
+    if !parsed_body["errors"]
+      return parsed_body
+    elsif parsed_body["errors"]["code"] == "surge"
+      if @user_id
+        # surge = make request and get surge in price
+        response = RestClient.get(
+        "#{BASE_URL}/v1/estimates/price",
+        body.to_json,
+        authorization: bearer_header,
+        "Content-Type" => :json,
+        accept: 'json'
+        )
+        surge_multiplier = response.prices.select{ |product| product.product_id = product_id }.surge_multiplier
+        Ride.create(user_id: @user_id, surge_confirmation_id: response.meta.surge_confirmation.surge_confirmation_id)
+        return "Surge in price: Price has increased with #{surge_multiplier}"
+      else
+        return parsed_body['errors']
+      end
+    end
   end
 
   def products address
-    geocoder_location = Geocoder.search(address)[0].data["geometry"]["location"]
-    lat, lng = geocoder_location['lat'], geocoder_location['lng']
-    get_products_for_lat_lng lat, lng
+    lat, lng = resolve_address(address)
+    format_products_response(get_products_for_lat_lng lat, lng)
   end
 
   def get_products_for_lat_lng lat, lng
@@ -80,6 +104,15 @@ class UberCommand
     )
 
     JSON.parse(result.body)
+  end
+
+  def format_products_response products_response
+    return "No Uber products available for that location." unless products_response['products']
+    response = "The following products are available: \n"
+    products_response['products'].each do |product|
+      response += "- #{product['display_name']}: #{product['description']} (Capacity: #{product['capacity']})\n"
+    end
+    response
   end
 
   def bearer_header
@@ -111,7 +144,6 @@ class UberCommand
       accept: 'json'
     )
 
-        result['times'].first['estimate']
-
+    result['times'].first['estimate']
   end
 end
