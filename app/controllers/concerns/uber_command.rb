@@ -111,7 +111,7 @@ class UberCommand
       accept: 'json'
     )
 
-    result['times'].first['estimate']
+        result['times'].first['estimate']
 
   end
 end
