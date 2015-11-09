@@ -47,7 +47,7 @@ class UberCommand
       "start_longitude" => origin_lng,
       "end_latitude" => destination_lat,
       "end_longitude" => destination_lng,
-      "product_id" => product_id
+      "product_id" => product_idr4
     }
 
     response = RestClient.post(
@@ -95,4 +95,23 @@ class UberCommand
     [location['lat'], location['lng']]
   end
 
+  def get_eta address
+    location = resolve_address(address)
+    lat = location[0]
+    lng = location[1]
+
+    uri = Addressable::URI.parse("#{BASE_URL}/v1/estimates/time")
+    uri.query_values = { 'latitude' => lat, 'longitude' => lng }
+    resource = uri.to_s
+
+    result = RestClient.get(
+      resource,
+      authorization: bearer_header,
+      "Content-Type" => :json,
+      accept: 'json'
+    )
+
+    result['times'].first['estimate']
+
+  end
 end
