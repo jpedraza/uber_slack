@@ -54,8 +54,8 @@ class UberCommand
     return response
   end
 
-  private
 
+  private
   attr_reader :bearer_token
 
   def get_eta address
@@ -71,8 +71,11 @@ class UberCommand
       "Content-Type" => :json,
       accept: 'json'
     )
-
-    seconds = JSON.parse(result)
+    result = JSON.parse(result)
+    min_s, max_s = response['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
+    min_s /= 60
+    max_s /= 60
+    "Your ride will take between #{min_s} to #{max_s} minutes"
   end
 
   def ride_request_details request_id
