@@ -73,6 +73,8 @@ class UberCommand
       "Content-Type" => :json,
       accept: 'json'
     )
+    return "Sorry, something went wrong on our part" if result.code == 500
+
     result = JSON.parse(result)
     min_s, max_s = result['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
     min_s /= 60
