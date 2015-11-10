@@ -58,9 +58,9 @@ class UberCommand
   private
   attr_reader :bearer_token
 
-  def get_eta address
+  def get_eta address=nil
     # Handle errors if invalid error is entered
-    return LOCATION_NOT_FOUND_ERROR if resolve_address(address) == LOCATION_NOT_FOUND_ERROR
+    return LOCATION_NOT_FOUND_ERROR if ( address.nil? || resolve_address(address) == LOCATION_NOT_FOUND_ERROR)
     lat, lng = resolve_address(address)
     uri = Addressable::URI.parse("#{BASE_URL}/v1/estimates/time")
     uri.query_values = { 'start_latitude' => lat, 'start_longitude' => lng }
