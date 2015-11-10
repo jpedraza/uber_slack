@@ -147,7 +147,7 @@ class UberCommand
   end
 
   def ride input_str
-    if input_str.blank? | input_str.split("to").length < 2
+    if input_str.blank? || input_str.split("to").length < 2
       return RIDE_REQUEST_FORMAT_ERROR
     end
     origin_name, destination_name = input_str.split(" to ")
