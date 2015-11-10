@@ -8,15 +8,13 @@ class Api::AuthorizationsController < ApplicationController
   end
 
   def use_uber
-  	# here order car
-  	auth = Authorization.find_by(slack_user_id: params[:user_id])
-       slack_url = slack_params[:response_url]
-  	uber_command = UberCommand.new(auth.uber_auth_token, auth.id, slack_url)
-  	resp = uber_command.run(slack_params[:text])
-		render json: resp
+    # here order car
+    auth = Authorization.find_by(slack_user_id: params[:user_id])
+    slack_url = slack_params[:response_url]
+    uber_command = UberCommand.new(auth.uber_auth_token, auth.id, slack_url)
+    resp = uber_command.run(slack_params[:text])
+    render json: resp
   end
-
-
 
   def connect_uber
     # After user has clicked "yes" on Uber OAuth page
@@ -25,7 +23,7 @@ class Api::AuthorizationsController < ApplicationController
       'client_id'     => ENV['uber_client_id'],
       'grant_type'    => 'authorization_code',
       'redirect_uri'  => ENV['uber_callback_url'],
-      'code' 	      	=> params[:code]
+      'code'            => params[:code]
     }
     # post request to uber to trade code for user access token
     resp = RestClient.post(ENV['uber_oauth_url'], post_params)
@@ -38,27 +36,27 @@ class Api::AuthorizationsController < ApplicationController
       expires_in = JSON.parse(resp.body)['expires_in']
 
       if access_token.nil?
-        render json: {status: "Error: no access token", body: resp.body}
+        render json: { status: "Error: no access token", body: resp.body }
       else
-  	    Authorization.find_by(session_token: session[:session_token])
-          					 .update(uber_auth_token: access_token,
-          					 				 uber_refresh_token: refresh_token,
-          					         uber_access_token_expiration_time: Time.now + expires_in)
+        Authorization.find_by(session_token: session[:session_token])
+          .update(uber_auth_token: access_token,
+                  uber_refresh_token: refresh_token,
+                  uber_access_token_expiration_time: Time.now + expires_in)
 
-       # sign up success, prompt user that they can order uber now
-  			response_url = Authorization.find_by_session_token(session[:session_token]).slack_response_url
-  			slack_response_params = {
-  				text: 'You can now order an Uber from Slack!'
-  			}
+        # sign up success, prompt user that they can order uber now
+        response_url = Authorization.find_by_session_token(session[:session_token]).slack_response_url
+        slack_response_params = {
+          text: 'You can now order an Uber from Slack!'
+        }
 
-  			resp = RestClient.post(response_url, slack_response_params.to_json)
+        resp = RestClient.post(response_url, slack_response_params.to_json)
 
         if resp.code == 500
           render text: "Sorry, something went wrong on our end."
         else
-    	    render text: "Successfully connected!"
+          render text: "Successfully connected!"
         end
-  	  end
+      end
     end
   end
 
@@ -77,9 +75,9 @@ class Api::AuthorizationsController < ApplicationController
     # First channel admin agrees to use app
     slack_auth_params = {
       client_secret: ENV['slack_client_secret'],
-      client_id: 		 ENV['slack_client_id'],
+      client_id:     ENV['slack_client_id'],
       redirect_uri:  ENV['slack_redirect'],
-      code: slack_params[:code]
+      code:          slack_params[:code]
     }
 
     resp = RestClient.post(ENV['slack_oauth_url'], slack_auth_params)
@@ -88,7 +86,7 @@ class Api::AuthorizationsController < ApplicationController
       render text: "Sorry, something went wrong on our end."
     else
       access_token = resp['access_token']
-      #add static success.
+      # add static success.
       redirect_to static_pages_admin_success_url
     end
   end
@@ -96,9 +94,9 @@ class Api::AuthorizationsController < ApplicationController
   private
 
   def verify_slack_token
-    #verify request to use_uber is from slack.
+    # verify request to use_uber is from slack.
     unless slack_params[:token] == ENV['slack_app_token']
-      render json: {error: "Missing slack_app_token", params: slack_params}
+      render json: { error: "Missing slack_app_token", params: slack_params }
     end
   end
 
@@ -148,8 +146,8 @@ class Api::AuthorizationsController < ApplicationController
   end
 
   def register_new_user
-		# save the slack response url so we can send an alert upon uber auth success
-  	Authorization.create!(slack_user_id: params[:user_id], slack_response_url: params[:response_url])
+    # save the slack response url so we can send an alert upon uber auth success
+    Authorization.create!(slack_user_id: params[:user_id], slack_response_url: params[:response_url])
   end
 
   def uber_oauth_str_url(slack_user_id)

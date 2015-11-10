@@ -11,7 +11,7 @@
 
 class Ride < ActiveRecord::Base
   belongs_to :user,
-    class_name: "Authorization",
-    foreign_key: :user_id,
-    primary_key: :id
+             class_name: "Authorization",
+             foreign_key: :user_id,
+             primary_key: :id
 end
