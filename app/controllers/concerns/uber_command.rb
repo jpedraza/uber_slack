@@ -157,8 +157,9 @@ class UberCommand
     origin_name, destination_name = input_str.split("to")
 
     origin_lat, origin_lng = resolve_address origin_name
+    return LOCATION_NOT_FOUND_ERROR if origin_lat == LOCATION_NOT_FOUND_ERROR
     destination_lat, destination_lng = resolve_address destination_name
-
+    # get first product from products list
     available_products = get_products_for_lat_lng(origin_lat, origin_lng)
     product_id = available_products["products"].first["product_id"]
 
@@ -170,6 +171,7 @@ class UberCommand
       "product_id" => product_id
     }
 
+    # get estimate for provided origin and destination
     response = RestClient.post(
       "#{BASE_URL}/v1/requests/estimate",
       body.to_json,
@@ -179,7 +181,7 @@ class UberCommand
     )
 
     errors = JSON.parse(response.body)["errors"]
-    return format_response_errors errors if !errors.blank?
+    response = format_response_errors errors if !errors.blank?
 
     surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
     surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
@@ -204,7 +206,6 @@ class UberCommand
         accept: :json
       )
       format_200_ride_request_response(JSON.parse(response.body))
-      "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
     end
   end
 
