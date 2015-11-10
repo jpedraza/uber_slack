@@ -178,8 +178,8 @@ class UberCommand
       accept: :json
     )
 
-    errors = JSON.parse(response.body)["errors"]
-    return format_response_errors errors if !errors.blank?
+    # errors = JSON.parse(response.body)["errors"]
+    # return format_response_errors errors if !errors.blank?
 
     # surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
     # surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
