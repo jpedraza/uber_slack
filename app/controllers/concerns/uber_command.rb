@@ -154,7 +154,7 @@ class UberCommand
     if input_str.blank? || input_str.split("to").length < 2
       return RIDE_REQUEST_FORMAT_ERROR
     end
-    origin_name, destination_name = input_str.split("to")
+    origin_name, destination_name = input_str.split("to").map(&:strip)
 
     origin_lat, origin_lng = resolve_address origin_name
     destination_lat, destination_lng = resolve_address destination_name
