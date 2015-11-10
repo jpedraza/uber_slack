@@ -30,7 +30,7 @@ gem 'figaro'
 gem 'rest-client'
 gem 'addressable'
 
-gem 'rubocop'
+gem 'rubocop', require: false
 
 
 # Use ActiveModel has_secure_password

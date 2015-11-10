@@ -13,15 +13,15 @@
 # slack_user_id, session_token, uber_auth_token
 class Authorization < ActiveRecord::Base
   has_many :rides,
-    class_name: "Ride",
-    foreign_key: :user_id,
-    primary_key: :id
+           class_name: "Ride",
+           foreign_key: :user_id,
+           primary_key: :id
 
   def self.create_session_token
     SecureRandom.urlsafe_base64(16)
   end
 
   def uber_registered?
-  	!self.uber_auth_token.nil?
+    uber_auth_token
   end
 end
