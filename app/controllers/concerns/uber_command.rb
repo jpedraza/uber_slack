@@ -153,10 +153,10 @@ class UberCommand
   end
 
   def ride input_str
-    if input_str.blank?
+    if input_str.blank? || input_str.split("to").length < 2
       return RIDE_REQUEST_FORMAT_ERROR
     end
-    origin_name, destination_name = input_str.split(" to ")
+    origin_name, destination_name = input_str.split("to")
 
     origin_lat, origin_lng = resolve_address origin_name
     destination_lat, destination_lng = resolve_address destination_name
@@ -179,6 +179,9 @@ class UberCommand
       "Content-Type" => :json,
       accept: :json
     )
+
+    errors = JSON.parse(response.body)["errors"]
+    return format_response_errors errors if !errors.blank?
 
     surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
     surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
