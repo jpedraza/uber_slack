@@ -72,7 +72,7 @@ class UberCommand
       accept: 'json'
     )
     result = JSON.parse(result)
-    min_s, max_s = response['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
+    min_s, max_s = result['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
     min_s /= 60
     max_s /= 60
     "Your ride will take between #{min_s} to #{max_s} minutes"
