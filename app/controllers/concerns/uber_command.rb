@@ -171,7 +171,7 @@ class UberCommand
     }
 
     response = RestClient.post(
-      "#{BASE_URL}/v1/requests/estimate",
+      "#{BASE_URL}/v1/requests",
       body.to_json,
       authorization: bearer_header,
       "Content-Type" => :json,
