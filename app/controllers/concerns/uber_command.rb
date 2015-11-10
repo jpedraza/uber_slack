@@ -59,6 +59,8 @@ class UberCommand
   attr_reader :bearer_token
 
   def get_eta address
+    # Handle errors if invalid error is entered
+    return LOCATION_NOT_FOUND_ERROR if resolve_address(address) == LOCATION_NOT_FOUND_ERROR
     lat, lng = resolve_address(address)
     uri = Addressable::URI.parse("#{BASE_URL}/v1/estimates/time")
     uri.query_values = { 'start_latitude' => lat, 'start_longitude' => lng }
@@ -72,9 +74,10 @@ class UberCommand
       accept: 'json'
     )
     result = JSON.parse(result)
-    min_s, max_s = response['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
+    min_s, max_s = result['times'].minmax{|el1,el2| el1['estimate'] <=> el2['estimate']}.map{|x| x['estimate']}
     min_s /= 60
     max_s /= 60
+    max_s += 1 if max_s == min_s
     "Your ride will take between #{min_s} to #{max_s} minutes"
   end
 
