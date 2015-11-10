@@ -39,6 +39,9 @@ class UberCommand
   end
 
   def run user_input_string
+    if user_input_string.blank?
+      return UNKNOWN_COMMAND_ERROR
+    end
     input = user_input_string.split(" ", 2) # Only split on first space.
     command_name = input.first.downcase
 
@@ -144,6 +147,9 @@ class UberCommand
   end
 
   def ride input_str
+    if input_str.blank?
+      return RIDE_REQUEST_FORMAT_ERROR
+    end
     origin_name, destination_name = input_str.split(" to ")
 
     origin_lat, origin_lng = resolve_address origin_name
