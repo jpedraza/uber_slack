@@ -178,34 +178,34 @@ class UberCommand
       accept: :json
     )
 
-    errors = JSON.parse(response.body)["errors"]
-    return format_response_errors errors if !errors.blank?
+    # errors = JSON.parse(response.body)["errors"]
+    # return format_response_errors errors if !errors.blank?
 
-    surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
-    surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
+    # surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
+    # surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
 
-    if surge_multiplier > 1
-      Ride.create(
-        user_id: @user_id,
-        surge_confirmation_id: surge_confirmation_id,
-        :start_latitude => origin_lat,
-        :start_longitude => origin_lng,
-        :end_latitude => destination_lat,
-        :end_longitude => destination_lng,
-        :product_id => product_id
-      )
-      return "#{surge_multiplier} surge is in effect. Reply '/uber accept' to confirm the ride."
-    else
-      response = RestClient.post(
-        "#{BASE_URL}/v1/requests",
-        body.to_json,
-        authorization: bearer_header,
-        "Content-Type" => :json,
-        accept: :json
-      )
-      format_200_ride_request_response(JSON.parse(response.body))
-      "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
-    end
+    # if surge_multiplier > 1
+    #   Ride.create(
+    #     user_id: @user_id,
+    #     surge_confirmation_id: surge_confirmation_id,
+    #     :start_latitude => origin_lat,
+    #     :start_longitude => origin_lng,
+    #     :end_latitude => destination_lat,
+    #     :end_longitude => destination_lng,
+    #     :product_id => product_id
+    #   )
+    #   return "#{surge_multiplier} surge is in effect. Reply '/uber accept' to confirm the ride."
+    # else
+    #   response = RestClient.post(
+    #     "#{BASE_URL}/v1/requests",
+    #     body.to_json,
+    #     authorization: bearer_header,
+    #     "Content-Type" => :json,
+    #     accept: :json
+    #   )
+    #   format_200_ride_request_response(JSON.parse(response.body))
+    #   "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
+    # end
   end
 
   def products address = nil
