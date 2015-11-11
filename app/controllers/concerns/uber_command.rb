@@ -154,6 +154,161 @@ class UberCommand
     end
   end
 
+
+  def ride input_str
+    return RIDE_REQUEST_FORMAT_ERROR unless input_str.include?(" to ")
+
+    origin_name, destination_name = parse_start_and_end_address(input_str)
+    origin_lat, origin_lng = resolve_address origin_name
+    destination_lat, destination_lng = resolve_address destination_name
+
+    product_id = get_default_product_id_for_lat_lng(origin_lat, origin_lng)
+
+    ride_estimate_hash = get_ride_estimate(
+      origin_lat,
+      origin_lng,
+      destination_lat,
+      destination_lng,
+      product_id
+    )
+
+    surge_multiplier = ride_estimate_hash["price"]["surge_multiplier"]
+    surge_confirmation_id = ride_estimate_hash["price"]["surge_confirmation_id"]
+
+    ride_attrs = {
+      user_id: @user_id,
+      :start_latitude => origin_lat,
+      :start_longitude => origin_lng,
+      :end_latitude => destination_lat,
+      :end_longitude => destination_lng,
+      :product_id => product_id
+    }
+
+    if surge_confirmation_id
+      ride_attrs['surge_confirmation_id'] = surge_confirmation_id
+      ride_attrs['surge_multiplier'] = surge_multiplier
+    end
+
+    ride = Ride.create!(ride_attrs)
+
+    if surge_multiplier > 2
+      return [
+        "#{surge_multiplier}x surge is in effect.",
+        "Reply '/uber accept #{surge_multiplier}' to confirm the ride."
+      ].join(" ")
+    elsif surge_multiplier > 1
+      return [
+        "#{surge_multiplier}x surge is in effect.",
+        "Reply '/uber accept' to confirm the ride."
+      ].join(" ")
+    else
+      ride_response = request_ride!(
+        origin_lat,
+        origin_lng,
+        destination_lat,
+        destination_lng,
+        product_id
+      )
+      if ride_response["errors"]
+        reply_to_slack("We were not able to request a ride from Uber. Please try again.")
+      else
+        ride.update!(request_id: ride_response['request_id'])  # TODO: Do async.
+        success_msg = format_200_ride_request_response(ride_response)
+        reply_to_slack(success_msg)
+      end
+      ""  # Return empty string in case we answer Slack soon enough for response to go through.
+    end
+  end
+
+
+  def accept stated_multiplier
+    @ride = Ride.where(user_id: @user_id).order(:updated_at).last
+
+    if @ride.nil?
+      return "Sorry, we're not sure which ride you want to confirm. Please try requesting another."
+    end
+
+    multiplier = @ride.surge_multiplier
+    surge_is_high = multiplier >= 2.0
+
+    if surge_is_high and (stated_multiplier.nil? or stated_multiplier.to_f != multiplier)
+      return "That didn't work. Please reply '/uber accept #{multiplier}' to confirm the ride."
+    end
+
+    if surge_is_high and !stated_multiplier.include?('.')
+      return "That didn't work. Please include decimals to confirm #{multiplier}x surge."
+    end
+
+    surge_confirmation_id = @ride.surge_confirmation_id
+    product_id = @ride.product_id
+
+    start_latitude = @ride.start_latitude
+    start_longitude = @ride.start_longitude
+    end_latitude = @ride.end_latitude
+    end_longitude = @ride.end_longitude
+
+    fail_msg = "Sorry but something went wrong. We were unable to request a ride."
+
+    if (Time.now - @ride.updated_at) > 5.minutes
+      # TODO: Break out address resolution in #ride so that we can pass lat/lngs directly.
+      start_location = "#{@ride.start_latitude}, #{@ride.start_longitude}"
+      end_location = "#{@ride.end_latitude}, #{@ride.end_longitude}"
+      return ride "#{start_location} to #{end_location}"
+    else
+      body = {
+        "start_latitude" => start_latitude,
+        "start_longitude" => start_longitude,
+        "end_latitude" => end_latitude,
+        "end_longitude" => end_longitude,
+        "surge_confirmation_id" => surge_confirmation_id,
+        "product_id" => product_id
+      }
+      begin
+        response = RestClient.post(
+          "#{BASE_URL}/v1/requests",
+          body.to_json,
+          authorization: bearer_header,
+          "Content-Type" => :json,
+          accept: 'json'
+        )
+      rescue
+        reply_to_slack(fail_msg)
+        return
+      end
+
+      if response.code == 200 or response.code == 202
+        success_msg = format_200_ride_request_response(JSON.parse(response.body))
+        reply_to_slack(success_msg)
+      else
+        reply_to_slack(fail_msg)
+      end
+      ""
+    end
+  end
+
+
+  def request_ride!(start_lat, start_lng, end_lat, end_lng, product_id, surge_confirmation_id = nil)
+     body = {
+       start_latitude: start_lat,
+       start_longitude: start_lng,
+       end_latitude: end_lat,
+       end_longitude: end_lng,
+       product_id: product_id
+     }
+
+     body['surge_confirmation_id'] = surge_confirmation_id if surge_confirmation_id
+
+     response = RestClient.post(
+       "#{BASE_URL}/v1/requests",
+       body.to_json,
+       authorization: bearer_header,
+       "Content-Type" => :json,
+       accept: :json
+     )
+
+   JSON.parse(response.body)
+ end
+
   def ride input_str
     if input_str.blank? || input_str.split("to").length < 2
       return RIDE_REQUEST_FORMAT_ERROR
