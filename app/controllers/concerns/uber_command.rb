@@ -286,7 +286,25 @@ class UberCommand
     destination_lat, destination_lng = resolve_address destination_name
 
     product_id = get_default_product_id_for_lat_lng(origin_lat, origin_lng)
-    get_ride_estimate(origin_lat, origin_lng, destination_lat, destination_lng, product_id)
+    resp = get_ride_estimate(origin_lat, origin_lng, destination_lat,
+      destination_lng, product_id)
+
+    low = resp["price"]["high_estimate"]
+    high = resp["price"]["low_estimate"]
+    eta = resp["pickup_estimate"]
+    if resp["price"]["surge_multiplier"] > 1
+      mult = resp["price"]["surge_multiplier"]
+      <<-STRING
+        #{mult}x surge is in effect.
+        Current price estimate is #{low} - #{high}.
+        A car would be available in approximately #{eta} minutes.
+      STRING
+    else
+      <<-STRING
+        Current price estimate is #{low} - #{high}.
+        A car would be available in approximately #{eta} minutes.
+      STRING
+    end
   end
 
   def get_ride_estimate(start_lat, start_lng, end_lat, end_lng, product_id)

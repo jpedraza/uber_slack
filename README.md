@@ -49,7 +49,7 @@ A help manual is available with the 'help' command:
 ```
 
 #### To-Dos / Forthcoming Features
-- [ ] Get fare estimates for your trip with `/uber fares [pickup address] [destination]`
+- [ ] Get fare estimates for your trip with `/uber fares [pickup address] to [destination]`
 - [ ] Echo command and resolved geographic information back
 - [ ] Canceling ride requests from Slack using `/uber cancel`
 - [ ] Specifying which Uber service to hail in the format `/uber ride [service] [pickup address] [destination]`
