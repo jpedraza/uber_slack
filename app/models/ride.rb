@@ -7,6 +7,12 @@
 #  surge_confirmation_id :string
 #  created_at            :datetime         not null
 #  updated_at            :datetime         not null
+#  start_latitude        :float
+#  start_longitude       :float
+#  end_latitude          :float
+#  end_longitude         :float
+#  product_id            :string
+#  surge_multiplier      :float
 #
 
 class Ride < ActiveRecord::Base

@@ -45,6 +45,7 @@ class UberCommand
     input = user_input_string.split(" ", 2) # Only split on first space.
     command_name = input.first.downcase
 
+    #is there a reason we need to downcase what will usually be numbers or addresses?
     command_argument = input.second.nil? ? nil : input.second.downcase
 
     return UNKNOWN_COMMAND_ERROR if invalid_command?(command_name) || command_name.nil?
@@ -57,8 +58,8 @@ class UberCommand
 
   private
   attr_reader :bearer_token
-
-  def get_eta address=nil
+  # don't need to give default = nil for inputs, since we always send something
+  def get_eta address
     # Handle errors if invalid error is entered
     return LOCATION_NOT_FOUND_ERROR if ( address.nil? || resolve_address(address) == LOCATION_NOT_FOUND_ERROR)
     lat, lng = resolve_address(address)
@@ -120,7 +121,7 @@ class UberCommand
   def ride input_str
     return RIDE_REQUEST_FORMAT_ERROR unless input_str.include?(" to ")
 
-    origin_name, destination_name = parse_start_and_end_address(input_str)
+    origin_name, destination_name = input_str.split("to").map(&:strip)
     origin_lat, origin_lng = resolve_address origin_name
     destination_lat, destination_lng = resolve_address destination_name
 
@@ -139,20 +140,22 @@ class UberCommand
 
     ride_attrs = {
       user_id: @user_id,
-      :start_latitude => origin_lat,
-      :start_longitude => origin_lng,
-      :end_latitude => destination_lat,
-      :end_longitude => destination_lng,
-      :product_id => product_id
+      start_latitude: origin_lat,
+      start_longitude: origin_lng,
+      end_latitude: destination_lat,
+      end_longitude: destination_lng,
+      product_id: product_id
     }
 
-    if surge_confirmation_id
-      ride_attrs['surge_confirmation_id'] = surge_confirmation_id
-      ride_attrs['surge_multiplier'] = surge_multiplier
+    unless surge_confirmation_id.blank?
+      ride_attrs[:surge_confirmation_id] = surge_confirmation_id
+      ride_attrs[:surge_multiplier] = surge_multiplier
     end
-
     ride = Ride.create!(ride_attrs)
 
+
+    # not sure why these are being treated differently and are requiring
+    # different responses.
     if surge_multiplier > 2
       return [
         "#{surge_multiplier}x surge is in effect.",
@@ -172,13 +175,14 @@ class UberCommand
         product_id
       )
       if ride_response["errors"]
-        reply_to_slack("We were not able to request a ride from Uber. Please try again.")
+        # "We were not able to request a ride from Uber. Please try again."
+        format_response_errors ride_response["errors"]
       else
-        ride.update!(request_id: ride_response['request_id'])  # TODO: Do async.
+        ride.update!(request_id: ride_response['request_id'])  # TODO: Do async. #Not this... RestClient posts could be async.
         success_msg = format_200_ride_request_response(ride_response)
-        reply_to_slack(success_msg)
       end
-      ""  # Return empty string in case we answer Slack soon enough for response to go through.
+      # ... No, return an empty string if we had a response_url sending success.
+      # ""  # Return empty string in case we answer Slack soon enough for response to go through.
     end
   end
 
@@ -191,14 +195,23 @@ class UberCommand
     end
 
     multiplier = @ride.surge_multiplier
-    surge_is_high = multiplier >= 2.0
+    # surge_is_high = multiplier >= 2.0
 
-    if surge_is_high and (stated_multiplier.nil? or stated_multiplier.to_f != multiplier)
-      return "That didn't work. Please reply '/uber accept #{multiplier}' to confirm the ride."
-    end
+    # if surge_is_high and (stated_multiplier.nil? or stated_multiplier.to_f != multiplier)
+    #   return "That didn't work. Please reply '/uber accept #{multiplier}' to confirm the ride."
+    # end
+    #
+    # if surge_is_high and !stated_multiplier.include?('.')
+    #   return "That didn't work. Please include decimals to confirm #{multiplier}x surge."
+    # end
 
-    if surge_is_high and !stated_multiplier.include?('.')
-      return "That didn't work. Please include decimals to confirm #{multiplier}x surge."
+    # I'm unclear why we are explicitly requiring them to type the multiplier only when >= 2.
+    # A confusing design decision, and probably confusing for the user.
+    if multiplier >= 2.0
+      if stated_multiplier.nil? || stated_multiplier.to_f != multiplier ||
+        !stated_multiplier.include?('.')
+        return "That didn't work. Please reply '/uber accept #{multiplier}' to confirm the ride."
+      end
     end
 
     surge_confirmation_id = @ride.surge_confirmation_id
@@ -211,41 +224,35 @@ class UberCommand
 
     fail_msg = "Sorry but something went wrong. We were unable to request a ride."
 
-    if (Time.now - @ride.updated_at) > 5.minutes
+    if (Time.now - @ride.updated_at) > 5.minutes #if surge may have passed since original request
       # TODO: Break out address resolution in #ride so that we can pass lat/lngs directly.
-      start_location = "#{@ride.start_latitude}, #{@ride.start_longitude}"
-      end_location = "#{@ride.end_latitude}, #{@ride.end_longitude}"
+      start_location = "#{start_latitude}, #{start_longitude}"
+      end_location = "#{end_latitude}, #{end_longitude}"
       return ride "#{start_location} to #{end_location}"
     else
-      body = {
-        "start_latitude" => start_latitude,
-        "start_longitude" => start_longitude,
-        "end_latitude" => end_latitude,
-        "end_longitude" => end_longitude,
-        "surge_confirmation_id" => surge_confirmation_id,
-        "product_id" => product_id
-      }
       begin
-        response = RestClient.post(
-          "#{BASE_URL}/v1/requests",
-          body.to_json,
-          authorization: bearer_header,
-          "Content-Type" => :json,
-          accept: 'json'
+        response = request_ride!(
+          start_latitude,
+          start_longitude,
+          end_latitude,
+          end_longitude,
+          product_id,
+          surge_confirmation_id
         )
       rescue
-        reply_to_slack(fail_msg)
-        return
+        # at one point some of these messages were changed to send via response_url
+        # but without asynchronous requests, there's not much point yet.
+        # e.g. RestClient.post(@response_url, fail_msg, "Content-Type" => :json)
+        return fail_msg
       end
 
       if response.code == 200 or response.code == 202
         success_msg = format_200_ride_request_response(JSON.parse(response.body))
-        reply_to_slack(success_msg)
       else
-        reply_to_slack(fail_msg)
+        fail_msg
       end
-      ""
     end
+    # ""
   end
 
 
@@ -269,9 +276,41 @@ class UberCommand
      )
 
    JSON.parse(response.body)
- end
+  end
 
-  def products address = nil
+  def fares input_str
+    return RIDE_REQUEST_FORMAT_ERROR unless input_str.include?(" to ")
+
+    origin_name, destination_name = input_str.split("to").map(&:strip)
+    origin_lat, origin_lng = resolve_address origin_name
+    destination_lat, destination_lng = resolve_address destination_name
+
+    product_id = get_default_product_id_for_lat_lng(origin_lat, origin_lng)
+    get_ride_estimate(origin_lat, origin_lng, destination_lat, destination_lng, product_id)
+  end
+
+  def get_ride_estimate(start_lat, start_lng, end_lat, end_lng, product_id)
+    body = {
+      start_latitude: start_lat,
+      start_longitude: start_lng,
+      end_latitude: end_lat,
+      end_longitude: end_lng,
+      product_id: product_id
+    }
+
+    response = RestClient.post(
+      "#{BASE_URL}/v1/requests/estimate",
+      body.to_json,
+      authorization: bearer_header,
+      "Content-Type" => :json,
+      accept: :json
+    )
+
+    JSON.parse(response.body)
+  end
+
+
+  def products address
     if address.blank?
       return PRODUCTS_REQUEST_FORMAT_ERROR
     end
