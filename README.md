@@ -42,6 +42,12 @@ To see a list of Uber products available for your address:
 /uber products [destination address]
 ```
 
+#### Checking Cost
+To get an estimate of the cost before ordering:
+```
+/uber fares [pickup address] to [destination address]
+```
+
 #### Help
 A help manual is available with the 'help' command:
 ```
@@ -49,7 +55,6 @@ A help manual is available with the 'help' command:
 ```
 
 #### To-Dos / Forthcoming Features
-- [ ] Get fare estimates for your trip with `/uber fares [pickup address] to [destination]`
 - [ ] Echo command and resolved geographic information back
 - [ ] Canceling ride requests from Slack using `/uber cancel`
 - [ ] Specifying which Uber service to hail in the format `/uber ride [service] [pickup address] [destination]`
