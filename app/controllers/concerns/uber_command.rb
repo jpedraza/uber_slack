@@ -117,44 +117,6 @@ class UberCommand
     HELP_TEXT
   end
 
-  def accept _ # No command argument.
-    @ride = Ride.where(user_id: @user_id).order(:updated_at).last
-    surge_confirmation_id = @ride.surge_confirmation_id
-    product_id = @ride.product_id
-    start_latitude = @ride.start_latitude
-    start_longitude = @ride.start_longitude
-    end_latitude = @ride.end_latitude
-    end_longitude = @ride.end_longitude
-
-    if (Time.now - @ride.updated_at) > 5.minutes
-      # TODO: Break out address resolution in #ride so that we can pass lat/lngs directly.
-      start_location = "#{@ride.start_latitude}, #{@ride.start_longitude}"
-      end_location = "#{@ride.end_latitude}, #{@ride.end_longitude}"
-      return ride "#{start_location} to #{end_location}"
-    else
-      body = {
-        "start_latitude" => start_latitude,
-        "start_longitude" => start_longitude,
-        "end_latitude" => end_latitude,
-        "end_longitude" => end_longitude,
-        "surge_confirmation_id" => surge_confirmation_id,
-        "product_id" => product_id
-      }
-      response = RestClient.post(
-        "#{BASE_URL}/v1/requests",
-        body.to_json,
-        authorization: bearer_header,
-        "Content-Type" => :json,
-        accept: 'json'
-      )
-      success_res = format_200_ride_request_response(JSON.parse(response.body))
-
-      RestClient.post(@response_url, success_res, "Content-Type" => :json)
-      ""
-    end
-  end
-
-
   def ride input_str
     return RIDE_REQUEST_FORMAT_ERROR unless input_str.include?(" to ")
 
@@ -308,64 +270,6 @@ class UberCommand
 
    JSON.parse(response.body)
  end
-
-  def ride input_str
-    if input_str.blank? || input_str.split("to").length < 2
-      return RIDE_REQUEST_FORMAT_ERROR
-    end
-    origin_name, destination_name = input_str.split("to").map(&:strip)
-
-    origin_lat, origin_lng = resolve_address origin_name
-    destination_lat, destination_lng = resolve_address destination_name
-
-    available_products = get_products_for_lat_lng(origin_lat, origin_lng)
-    product_id = available_products["products"].first["product_id"]
-
-    body = {
-      "start_latitude" => origin_lat,
-      "start_longitude" => origin_lng,
-      "end_latitude" => destination_lat,
-      "end_longitude" => destination_lng,
-      "product_id" => product_id
-    }
-
-    response = RestClient.post(
-      "#{BASE_URL}/v1/requests",
-      body.to_json,
-      authorization: bearer_header,
-      "Content-Type" => :json,
-      accept: :json
-    )
-
-    # errors = JSON.parse(response.body)["errors"]
-    # return format_response_errors errors if !errors.blank?
-
-    # surge_multiplier = JSON.parse(response.body)["price"]["surge_multiplier"]
-    # surge_confirmation_id = JSON.parse(response.body)["price"]["surge_confirmation_id"]
-
-    # if surge_multiplier > 1
-    #   Ride.create(
-    #     user_id: @user_id,
-    #     surge_confirmation_id: surge_confirmation_id,
-    #     :start_latitude => origin_lat,
-    #     :start_longitude => origin_lng,
-    #     :end_latitude => destination_lat,
-    #     :end_longitude => destination_lng,
-    #     :product_id => product_id
-    #   )
-    #   return "#{surge_multiplier} surge is in effect. Reply '/uber accept' to confirm the ride."
-    # else
-    #   response = RestClient.post(
-    #     "#{BASE_URL}/v1/requests",
-    #     body.to_json,
-    #     authorization: bearer_header,
-    #     "Content-Type" => :json,
-    #     accept: :json
-    #   )
-    #   format_200_ride_request_response(JSON.parse(response.body))
-    #   "Thank you. Keep an eye on your phone while we look for a driver to pick you up."
-    # end
-  end
 
   def products address = nil
     if address.blank?
